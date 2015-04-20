@@ -16,10 +16,10 @@
 """
 /images endpoint for Glance v1 API
 """
-
 import copy
 
 import eventlet
+import subprocess
 from oslo.config import cfg
 from webob.exc import HTTPBadRequest
 from webob.exc import HTTPConflict
@@ -28,6 +28,7 @@ from webob.exc import HTTPNotFound
 from webob.exc import HTTPRequestEntityTooLarge
 from webob import Response
 
+#from OpenSSL import crypto
 from glance.api import common
 from glance.api import policy
 import glance.api.v1
@@ -716,7 +717,57 @@ class Controller(controller.BaseController):
                                            content_type="text/plain")
                 image_meta = self._activate(req, image_id, location)
         return image_meta
+    
+    def _validate_image_signature(self, img_pub_cert, img_signature, image_loc):
+        '''
+        Validates an image has not been tampered with using openssl to verify 
+        the images certifate, signature, and digest
 
+        returns IMAGE_VERIFIED == 1 if the image signature can be verified 
+        returns IMAGE_NOT_VERIFIED == 0 if the image signature cant be verified
+        '''
+        
+        IMAGE_VERIFIED = 1
+        IMAGE_NOT_VERIFIED = 0        
+        digest = "sha1"
+        digest = "-" + digest
+        try:
+            from subprocess import Popen, PIPE
+            
+            #extract public key from certificate location passed
+            pkey_cmd = "openssl x509 -pubkey -noout -in "
+            LOG.debug(_("pkey_cmd: %s" % pkey_cmd))
+            LOG.debug(_('img_pub_cert %s.....img_loc: %s' % (img_pub_cert, image_loc)))
+            process = Popen(['openssl', 'x509', '-pubkey', '-noout', '-in', img_pub_cert], stdout=PIPE, stderr=PIPE)
+            stdout, stderr = process.communicate()
+            
+            LOG.debug(_("stdout pkey:  %s \n stderr: %s" % (stdout, stderr)))
+            pub_key_loc = '/tmp/pub_key'
+            pub_key = open(pub_key_loc, "w")
+            pub_key.write(stdout)
+            pub_key.close()
+            signature_verify_cmd = ""
+                
+            LOG.debug(_("image_loc:  %s" % image_loc)) 
+            #check storage method
+            if image_loc.startswith('file://'):
+                
+                process1 = Popen(['openssl', 'dgst', digest, "-verify", pub_key_loc, "-signature", img_signature, image_loc[7:]], stdout=PIPE, stderr=PIPE)
+                stdout, stderr = process1.communicate()
+        
+                LOG.debug(_("stdout digest signature:  %s \n stderr: %s" % (stdout, stderr)))
+                #check for errors
+                if "Verified OK" in stdout and stderr is '':
+                    LOG.debug(_("Signature verification"))
+                else:
+                    LOG.debug(_('signature can not be verified: %s' % stderr))
+                    return IMAGE_NOT_VERIFIED
+        except Exception as e:
+            LOG.debug(_("Image not verified %s" % e))
+            return IMAGE_NOT_VERIFIED
+        LOG.debug(_("Image signature and digest has been verified by openssl."))
+        return IMAGE_VERIFIED
+    
     def _validate_image_for_activation(self, req, id, values):
         """Ensures that all required image metadata values are valid."""
         image = self.get_image_meta_or_404(req, id)
@@ -787,10 +838,23 @@ class Controller(controller.BaseController):
 
         self._enforce_image_property_quota(image_meta, req=req)
 
+        #check image signature
+        #Get location of signature and public cert for image being uploaded
+        image_sig_loc = image_meta.get('img_signature')
+        pub_cert_loc = image_meta.get('img_pub_cert')
+        #image_loc = image_meta.get('location')
+        #image_meta['img_signed'] = self._validate_image_signature(pub_cert_loc, image_sig_loc, image_loc) 
+        
         image_meta = self._reserve(req, image_meta)
         id = image_meta['id']
-
+        
         image_meta = self._handle_source(req, id, image_meta, image_data)
+        #check image signature
+        #Get location of signature and public cert for image being uploaded
+        #image_sig_loc = image_meta.get('img_signature')
+        #pub_cert_loc = image_meta.get('img_pub_cert')
+        image_loc = image_meta.get('location')
+        image_meta['img_signed'] = self._validate_image_signature(pub_cert_loc, image_sig_loc, image_loc)
 
         location_uri = image_meta.get('location')
         if location_uri:
@@ -799,7 +863,7 @@ class Controller(controller.BaseController):
         # Prevent client from learning the location, as it
         # could contain security credentials
         image_meta = redact_loc(image_meta)
-
+        
         return {'image_meta': image_meta}
 
     @utils.mutating

@@ -137,6 +137,7 @@ class Image(BASE, GlanceBase):
     min_ram = Column(Integer, nullable=False, default=0)
     owner = Column(String(255))
     protected = Column(Boolean, nullable=False, default=False)
+    img_signed = Column(Boolean, nullable=False, default=False)
 
 
 class ImageProperty(BASE, GlanceBase):
