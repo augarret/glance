@@ -51,7 +51,7 @@ IMAGE_ATTRS = BASE_MODEL_ATTRS | set(['name', 'status', 'size', 'virtual_size',
                                       'disk_format', 'container_format',
                                       'min_disk', 'min_ram', 'is_public',
                                       'locations', 'checksum', 'owner',
-                                      'protected'])
+                                      'protected', 'img_signed'])
 
 
 class ImageRepo(object):
@@ -117,6 +117,7 @@ class ImageRepo(object):
             container_format=db_image['container_format'],
             size=db_image['size'],
             virtual_size=db_image['virtual_size'],
+            img_signed=db_image['img_signed'],
             extra_properties=properties,
             tags=db_tags
         )
@@ -147,6 +148,7 @@ class ImageRepo(object):
             'virtual_size': image.virtual_size,
             'is_public': image.visibility == 'public',
             'properties': dict(image.extra_properties),
+            'img_signed': image.img_signed,
         }
 
     def add(self, image):
