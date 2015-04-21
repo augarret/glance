@@ -57,7 +57,8 @@ IMAGE_META_HEADERS = ['x-image-meta-location', 'x-image-meta-size',
                       'x-image-meta-deleted_at', 'x-image-meta-min_ram',
                       'x-image-meta-min_disk', 'x-image-meta-owner',
                       'x-image-meta-store', 'x-image-meta-id',
-                      'x-image-meta-protected', 'x-image-meta-deleted']
+                      'x-image-meta-protected', 'x-image-meta-deleted',
+                      'x-image-meta-img_signature', 'x-image-meta-img_pub_cert']
 
 GLANCE_TEST_SOCKET_FD_STR = 'GLANCE_TEST_SOCKET_FD'
 

@@ -181,6 +181,7 @@ def _image_format(image_id, **values):
         'updated_at': dt,
         'deleted_at': None,
         'deleted': False,
+        'img_signed': 0,
     }
 
     locations = values.pop('locations', None)
@@ -514,7 +515,7 @@ def image_create(context, image_values):
                         'virtual_size', 'checksum', 'locations', 'owner',
                         'protected', 'is_public', 'container_format',
                         'disk_format', 'created_at', 'updated_at', 'deleted',
-                        'deleted_at', 'properties', 'tags'])
+                        'deleted_at', 'properties', 'tags', 'img_signed'])
 
     incorrect_keys = set(image_values.keys()) - allowed_keys
     if incorrect_keys:
